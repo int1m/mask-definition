@@ -1,10 +1,12 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 
 import { NSelect, NScrollbar, useMessage } from 'naive-ui';
 import VButton from '@/components/kit/VButton.vue';
-import VInput from '@/components/kit/VInput.vue';
+import VInputNumber from '@/components/kit/VInputNumber.vue';
 import VEmpty from '@/components/kit/VEmpty.vue';
+
+import { calculateMask } from '@/use/useMaskDefinition';
 
 const message = useMessage();
 
@@ -24,22 +26,56 @@ const networkClassOptions = [
   },
 ];
 
-const subnetsCount = ref(null);
-const computersCount = ref(null);
+const subnetsCount = ref<number | null>(null);
+const subnetsMessages = ref<Array<string>>([]);
+
+const computersCount = ref<number | null>(null);
+const computersCountMessages = ref<Array<string>>([]);
 
 const ipAddresses = ref<Array<any>>([]);
-const isAddressesEmptyCssPropsHeight = computed(() => (ipAddresses.value.length === 0 ? '100%' : 'unset'));
+
+const subnetsMessagesClear = () => {
+  if (subnetsMessages.value.length > 0) {
+    subnetsMessages.value.splice(0, subnetsMessages.value.length);
+  }
+};
+
+const computersCountMessagesClear = () => {
+  if (computersCountMessages.value.length > 0) {
+    computersCountMessages.value.splice(0, computersCountMessages.value.length);
+  }
+};
+
+const formValidation = (): boolean => {
+  let isValidate = true;
+  subnetsMessagesClear();
+  computersCountMessagesClear();
+
+  if (!subnetsCount.value) {
+    subnetsMessages.value.push('Поле не заполнено');
+    isValidate = false;
+  }
+
+  if (!computersCount.value) {
+    computersCountMessages.value.push('Поле не заполнено');
+    isValidate = false;
+  }
+
+  return isValidate;
+};
 
 const onClickSubmitHandler = () => {
-  message.error('Ошибка!!!');
-
   for (let i = 0; i < 20; i += 1) {
     ipAddresses.value.push({
       value: '134.414.313.5',
     });
   }
 
-  console.log(`${networkClass.value}, ${subnetsCount.value}, ${computersCount.value}`);
+  if (formValidation() && subnetsCount.value !== null && computersCount.value !== null) {
+    calculateMask(networkClass.value, subnetsCount.value, computersCount.value);
+  }
+
+  // console.log(`${networkClass.value}, ${subnetsCount.value}, ${computersCount.value}`);
 };
 </script>
 
@@ -57,27 +93,33 @@ const onClickSubmitHandler = () => {
             to=".network-class-options-render-container"
             class="mask-definition-form-select"
           />
-          <v-input
+          <v-input-number
             v-model:value="subnetsCount"
+            :messages="subnetsMessages"
+            :min="1"
             class="mask-definition-form-input"
             placeholder="Количество подсетей"
             style-type="form"
+            @input="subnetsMessagesClear"
           />
-          <v-input
+          <v-input-number
             v-model:value="computersCount"
+            :messages="computersCountMessages"
+            :min="1"
             class="mask-definition-form-input"
-            placeholder="Количество компьютеров"
+            placeholder="Количество хостов"
             style-type="form"
+            @input="computersCountMessagesClear"
           />
           <v-button type="primary" @click="onClickSubmitHandler">
             Определить
           </v-button>
         </div>
         <div class="mask-definition-content-addresses">
-          <n-scrollbar class="addresses-scrollbar">
-            <v-empty v-if="ipAddresses.length === 0">
-              Список IP адресов пуст
-            </v-empty>
+          <v-empty v-if="ipAddresses.length === 0">
+            Список IP адресов пуст
+          </v-empty>
+          <n-scrollbar v-else class="addresses-scrollbar">
             <div
               v-for="(address, index) in ipAddresses"
               :key="index"
@@ -194,7 +236,6 @@ const onClickSubmitHandler = () => {
 
           .n-scrollbar-content {
             min-height: 100%;
-            height: v-bind('isAddressesEmptyCssPropsHeight');
           }
         }
 

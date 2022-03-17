@@ -6,7 +6,7 @@ import VButton from '@/components/kit/VButton.vue';
 
 const props = defineProps({
   value: {
-    type: [String, Number, null] as PropType<string | number | null>,
+    type: [Number, null] as PropType<number | null>,
     required: true,
   },
   placeholder: {
@@ -25,6 +25,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  min: {
+    type: Number,
+    default: 0,
+  },
   messages: {
     type: Array as PropType<Array<string>>,
     default: () => [],
@@ -34,7 +38,7 @@ const props = defineProps({
 const emit = defineEmits(['update:value', 'focus']);
 const placeHolderValue = computed(() => props.placeholder);
 const inputTypeValue = computed(() => `v-input-container-${props.styleType}`);
-const isInputTouched = computed(() => props.value);
+const isInputTouched = computed(() => props.value !== null);
 const roundValue = computed(() => (props.round ? 'round' : ''));
 const isInputFocus = ref(false);
 const inputRef = ref<null | HTMLInputElement>(null);
@@ -71,7 +75,7 @@ const labelStyle = computed(() => ({
 }));
 
 const onClickClearHandler = () => {
-  emit('update:value', '');
+  emit('update:value', null);
 };
 
 const onClick = () => {
@@ -88,7 +92,12 @@ const onFocusOut = (e: Event) => {
 };
 
 const onInput = (e: InputEvent) => {
-  emit('update:value', (e.target as HTMLInputElement).value);
+  const inputValue = Number.parseInt((e.target as HTMLInputElement).value, 10);
+  if (inputValue > props.min) {
+    emit('update:value', inputValue);
+  } else {
+    emit('update:value', props.min);
+  }
 };
 
 const onFocus = () => {
@@ -122,7 +131,8 @@ if (root) {
         <input
           ref="inputRef"
           class="v-input"
-          type="text"
+          type="number"
+          :min="props.min"
           :class="{ 'touched': isInputTouched }"
           :style="{ height: inputStyle.height + 'rem' }"
           :value="value"
@@ -204,6 +214,17 @@ if (root) {
         background-color: transparent;
       }
 
+      input::-webkit-outer-spin-button,
+      input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+
+      /* Firefox */
+      input[type=number] {
+        -moz-appearance: textfield;
+      }
+
       .v-input-label {
         display: block;
         position: absolute;
@@ -275,6 +296,7 @@ if (root) {
     }
   }
 }
+
 .v-input-container-form {
   .v-input-field {
     border-radius: var(--border-radius-default);
