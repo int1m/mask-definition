@@ -6,7 +6,7 @@ import VButton from '@/components/kit/VButton.vue';
 import VInputNumber from '@/components/kit/VInputNumber.vue';
 import VEmpty from '@/components/kit/VEmpty.vue';
 
-import { calculateMask } from '@/use/useMaskDefinition';
+import { calculateNet, CalculateNetType } from '@/use/useMaskDefinition';
 
 const message = useMessage();
 
@@ -29,10 +29,14 @@ const networkClassOptions = [
 const subnetsCount = ref<number | null>(null);
 const subnetsMessages = ref<Array<string>>([]);
 
-const computersCount = ref<number | null>(null);
-const computersCountMessages = ref<Array<string>>([]);
+const hostsCount = ref<number | null>(null);
+const hostsCountMessages = ref<Array<string>>([]);
 
-const ipAddresses = ref<Array<any>>([]);
+const net = ref<CalculateNetType>({
+  status: true,
+  ipAddresses: [],
+  mask: '',
+});
 
 const subnetsMessagesClear = () => {
   if (subnetsMessages.value.length > 0) {
@@ -41,8 +45,8 @@ const subnetsMessagesClear = () => {
 };
 
 const computersCountMessagesClear = () => {
-  if (computersCountMessages.value.length > 0) {
-    computersCountMessages.value.splice(0, computersCountMessages.value.length);
+  if (hostsCountMessages.value.length > 0) {
+    hostsCountMessages.value.splice(0, hostsCountMessages.value.length);
   }
 };
 
@@ -56,8 +60,8 @@ const formValidation = (): boolean => {
     isValidate = false;
   }
 
-  if (!computersCount.value) {
-    computersCountMessages.value.push('Поле не заполнено');
+  if (!hostsCount.value) {
+    hostsCountMessages.value.push('Поле не заполнено');
     isValidate = false;
   }
 
@@ -65,17 +69,13 @@ const formValidation = (): boolean => {
 };
 
 const onClickSubmitHandler = () => {
-  for (let i = 0; i < 20; i += 1) {
-    ipAddresses.value.push({
-      value: '134.414.313.5',
-    });
+  if (formValidation() && subnetsCount.value !== null && hostsCount.value !== null) {
+    net.value = calculateNet(networkClass.value, subnetsCount.value, hostsCount.value);
+    // console.log(net);
+    if (!net.value.status) {
+      message.error('При заданных параметрах, разбиение на подсети невозможно');
+    }
   }
-
-  if (formValidation() && subnetsCount.value !== null && computersCount.value !== null) {
-    calculateMask(networkClass.value, subnetsCount.value, computersCount.value);
-  }
-
-  // console.log(`${networkClass.value}, ${subnetsCount.value}, ${computersCount.value}`);
 };
 </script>
 
@@ -103,8 +103,8 @@ const onClickSubmitHandler = () => {
             @input="subnetsMessagesClear"
           />
           <v-input-number
-            v-model:value="computersCount"
-            :messages="computersCountMessages"
+            v-model:value="hostsCount"
+            :messages="hostsCountMessages"
             :min="1"
             class="mask-definition-form-input"
             placeholder="Количество хостов"
@@ -116,18 +116,26 @@ const onClickSubmitHandler = () => {
           </v-button>
         </div>
         <div class="mask-definition-content-addresses">
-          <v-empty v-if="ipAddresses.length === 0">
-            Список IP адресов пуст
-          </v-empty>
-          <n-scrollbar v-else class="addresses-scrollbar">
-            <div
-              v-for="(address, index) in ipAddresses"
-              :key="index"
-              class="adress"
-            >
-              {{ address.value }}
+          <Transition name="content-addresses">
+            <v-empty v-if="net.ipAddresses.length === 0" class="mask-definition-net-empty">
+              Список IP адресов пуст
+            </v-empty>
+            <div v-else-if="net.status" class="mask-definition-net">
+              <h2>Маска сети: {{ net.mask }}</h2>
+              <div class="mask-definition-net-addresses-title">
+                Cписок возможных IP-адресов подсетей:
+              </div>
+              <n-scrollbar class="addresses-scrollbar">
+                <div
+                  v-for="address in net.ipAddresses"
+                  :key="address"
+                  class="address"
+                >
+                  {{ address }}
+                </div>
+              </n-scrollbar>
             </div>
-          </n-scrollbar>
+          </Transition>
         </div>
       </div>
     </div>
@@ -211,37 +219,73 @@ const onClickSubmitHandler = () => {
 
       .mask-definition-content-addresses {
         width: 100%;
-        height: 260px;
-        max-height: 260px;
+        height: 360px;
+        max-height: 360px;
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
         background-color: rgb(29, 29, 29);
         border-radius: var(--border-radius-default);
-        padding: 1rem 1rem;
         overflow: hidden;
         contain: strict;
 
-        :deep(.addresses-scrollbar) {
-          .n-scrollbar-rail {
-            display: none;
-            right: 0;
+        .mask-definition-net-empty {
+          position: absolute;
+          top: 0;
+          left: 0;
+        }
+
+        .mask-definition-net {
+          position: absolute;
+          top: 1rem;
+          left: 1rem;
+          bottom: 1rem;
+          right: 1rem;
+          overflow: hidden;
+
+          .mask-definition-net-addresses-title {
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--color-text-secondary);
           }
 
-          @media (min-width: 927px) {
+          .address {
+            color: var(--color-text-secondary);
+            font-weight: 500;
+            font-size: 0.875rem;
+          }
+
+          :deep(.addresses-scrollbar) {
             .n-scrollbar-rail {
-              display: block;
+              display: none;
+              right: 0;
             }
-          }
 
-          .n-scrollbar-content {
-            min-height: 100%;
+            @media (min-width: 927px) {
+              .n-scrollbar-rail {
+                display: block;
+              }
+            }
+
+            .n-scrollbar-content {
+              min-height: 100%;
+            }
           }
         }
 
-        .address {
-          color: var(--color-text-secondary);
-          font-weight: 500;
+        .content-addresses-enter-active {
+          transition: all 0.3s ease-out;
+        }
+
+        .content-addresses-leave-active {
+          transition: all 0.2s ease-in;
+        }
+
+        .content-addresses-enter-from,
+        .content-addresses-leave-to {
+          transform: translateY(-20px);
+          opacity: 0;
         }
       }
     }
